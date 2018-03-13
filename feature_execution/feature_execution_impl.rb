@@ -1,16 +1,16 @@
 require 'singleton'
+require_relative 'class_adapter.rb'
 
 Dir["#{File.dirname(__FILE__)}/../text_correctness_app/features/*.rb"].each { |file| require file }
 Dir["#{File.dirname(__FILE__)}/../text_correctness_app/skeleton/*.rb"].each { |file| require file }
 
 class FeatureExecutionImpl
+  include Singleton
 
-	include Singleton
+  def alter(action, feature_selector)
+    # TODO: To be completed
+  end
 
-	def alter(action, feature_selector)
-		# TODO To be completed
-	end
+  # TODO: To be completed if needed
 
-	# TODO To be completed if needed
-	
 end

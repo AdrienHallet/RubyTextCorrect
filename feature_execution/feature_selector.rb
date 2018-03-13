@@ -1,7 +1,13 @@
 class FeatureSelector
 
-	attr_reader :feature, :klass
+  attr_reader :feature, :klass
 
-	# TODO To be completed
+  def initialize(feature, klass)
+    @feature = Object.const_get(feature)
+
+    adapter = @feature.get_adapter.to_s
+    raise "#{@feature} does not adapt from #{klass}" unless adapter.eql? klass
+
+  end
 
 end
