@@ -9,8 +9,7 @@ class FeatureExecutionImpl
 
   def alter(action, feature_selector)
     myobject = feature_selector.feature.get_adapter
-
-    raise 'Unknown method' unless feature_selector.feature.instance_methods.include?(:printing)
+    methods = feature_selector.feature.instance_methods
     mymethod = feature_selector.feature.instance_method(:printing)
     Printer.send(:define_method, :printing, mymethod)
     puts 'End'
