@@ -16,7 +16,7 @@ class FeatureExecutionImpl
     puts feature_selector.feature.instance_method(:printing)
     puts '********'
 
-    raise 'Unknown method' unless feature_selector.feature.methods.include?(:printig)
+    raise 'Unknown method' unless feature_selector.feature.instance_methods.include?(:printing)
     mymethod = feature_selector.feature.instance_method(:printing)
     parsedobject.define_singleton_method(mymethod)
 
