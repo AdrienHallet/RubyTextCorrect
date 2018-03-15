@@ -6,6 +6,7 @@ class FeatureSelector
   def initialize(feature, klass)
     unless defined? $history
       $history = Hash.new
+      $history_logs = Hash.new
     end
     @feature = Object.const_get(feature)
     @hash_stacks = Hash.new
