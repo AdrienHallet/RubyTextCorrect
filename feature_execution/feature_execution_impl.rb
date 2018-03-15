@@ -35,6 +35,7 @@ class FeatureExecutionImpl
           next
         end
 
+        change_flag = false
         begin
           meth = adapter.instance_method(method_name) # Raise a NameError if the method does not exist
 
@@ -49,27 +50,49 @@ class FeatureExecutionImpl
           if $history_logs[(adapter.to_s)].nil?
             $history_logs[(adapter.to_s)] = []
           end
-          $history_logs[(adapter.to_s)].push(feature_selector)
+          change_flag = true
         rescue NameError => e #Todo Remove duplication in conditions
           if $history_logs[(adapter.to_s)].nil?
             $history_logs[(adapter.to_s)] = []
           end
-          feature_selector.instance_variable_set(:@nochange, true)
-          $history_logs[(adapter.to_s)].push(feature_selector)
+
+
         end
+        if change_flag
+          feature_selector.instance_variable_set(:@change, true)
+        end
+        $history_logs[(adapter.to_s)].push(feature_selector)
 
         method_body = feature_selector.feature.instance_method(method_name)
         adapter.send(:define_method, method_name , method_body)
         end
 
     elsif action == :unadapt
-      puts "Finding dory :"
-      array = $history_logs[feature_selector.feature.get_adapter.to_s]
-      index = array.index(feature_selector)
-      puts index.to_s + ' feature empty ' + feature_selector.instance_variable_get(:@nochange).to_s
-      # if index != 0 :> revert
-      # if index == 0 :> remove
 
+      adapter = Object.const_get feature_selector.feature.get_adapter
+      adapter_methods = adapter.instance_methods
+      moduler = feature_selector.feature
+      log_index = $history_logs[adapter.to_s].index(feature_selector) #Todo maybe raise error if attempting to remove (already) unadapted module ?
+      
+      if feature_selector.instance_variable_defined? :@change
+        #ToDo
+      else
+        puts 'DEBUG : cleaning added methods'
+        #We did not change any existing method
+
+        added_methods = moduler.instance_methods
+        added_methods.each do |current_method|
+          if adapter_methods.include? current_method
+            puts 'Removing method '+ current_method.to_s
+            adapter.send(:remove_method, current_method)
+            $history_logs[adapter.to_s].delete_at(log_index)
+          else
+            puts 'This should not be reached' # Todo remove when debug ends
+          end
+        end
+
+      end
+      puts 'End of procedure'
     end
 
 
