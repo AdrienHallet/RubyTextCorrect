@@ -4,6 +4,9 @@ class FeatureSelector
   attr_accessor :hash_stacks
 
   def initialize(feature, klass)
+    unless defined? $history
+      $history = Hash.new
+    end
     @feature = Object.const_get(feature)
     @hash_stacks = Hash.new
     adapter = @feature.get_adapter.to_s
@@ -14,16 +17,16 @@ class FeatureSelector
     flag = false
 
     begin
-      meth = klass.method(:feature) # Raise a NameError if the method does not exist
+      meth = klass.method(feature) # Raise a NameError if the method does not exist
     rescue NameError => e
       flag = true
     end
 
     if flag # if the method exists, we put the old one on a stack
-      if not hash_stacks.has_key?(:klass)
-        hash_stacks[:klass] = []
+      if not hash_stacks.has_key?(klass)
+        hash_stacks[klass] = []
       end
-        arr = hash_stacks[:klass]
+        arr = hash_stacks[klass]
         arr.push(meth)
     end
 
