@@ -1,12 +1,14 @@
-class FeatureSelector
+require_relative 'module.rb'
 
+class FeatureSelector
   attr_reader :feature, :klass
   attr_accessor :hash_stacks
 
   def initialize(feature, klass)
-    unless defined? $history
-      $history = Hash.new
-      $history_logs = Hash.new
+    thread = Thread.current
+    unless thread.key?(:history)
+      thread[:history] = Hash.new
+      thread[:history_logs] = Hash.new
     end
     @feature = Object.const_get(feature)
     @hash_stacks = Hash.new
