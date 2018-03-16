@@ -1,5 +1,3 @@
-require_relative 'module.rb'
-
 class FeatureSelector
   attr_reader :feature, :klass
   attr_accessor :hash_stacks
@@ -9,6 +7,7 @@ class FeatureSelector
     unless thread.key?(:history)
       thread[:history] = Hash.new
       thread[:history_logs] = Hash.new
+      thread[:access] = Hash.new(1)
     end
     @feature = Object.const_get(feature)
     @hash_stacks = Hash.new

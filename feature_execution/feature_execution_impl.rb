@@ -14,17 +14,16 @@ class FeatureExecutionImpl
       proceed_body = proc do
         key = feature_selector.feature.get_adapter.to_s
         callname =  caller[0][/`.*'/][1..-2] #magic
+        #TODO : Access is not thread-safe, find another way to go back on proceed
         res = thread[:history][key+callname]
-        unless thread.key?(:access)
-          thread[:access] = Hash.new(1)
+        unless defined? thread[:access]
+          thread[:access]= Hash.new(1)
         end
-        if res[-thread[:access][callname]].to_s.eql? 'HEAD'
-          thread[:access][callname] = 1
-        end
-
         node = res[-thread[:access][callname]]
         thread[:access][callname] += 1
         meth = node.bind(self)
+
+
         meth.call
       end
       adapter.send(:define_method, :proceed, &proceed_body)
@@ -73,33 +72,14 @@ class FeatureExecutionImpl
       adapter = Object.const_get feature_selector.feature.get_adapter
       adapter_methods = adapter.instance_methods
       moduler = feature_selector.feature
-      #log_index = $history_logs[(adapter.to_s) + (current_method.to_s)].index(feature_selector) #Todo maybe raise error if attempting to remove (already) unadapted module ?
 
       if feature_selector.instance_variable_defined? :@change
-=begin
-        counter = 0
-        $history_logs[adapter.to_s].reverse_each do |selector|
-
-          if selector == feature_selector
-            break
-          else
-            if selector.instance_variable_defined? :@change
-              counter += 1
-            end
-          end
-        end
-=end
-
-
-
         added_methods = moduler.instance_methods
         added_methods.each do |current_method|
           if thread[:history][(adapter.to_s) + (current_method.to_s)].nil?
-            puts 'Removing method '+ current_method.to_s
             adapter.send(:remove_method, current_method)
           else
             position = thread[:history_logs][(adapter.to_s) + (current_method.to_s)].index(feature_selector)
-            puts 'Removing method '+ current_method.to_s
             adapter.send(:remove_method, current_method)
             old_version = thread[:history][(adapter.to_s) + (current_method.to_s)][position+1]
             adapter.send(:define_method, current_method, old_version)
@@ -108,13 +88,11 @@ class FeatureExecutionImpl
           end
         end
       else
-        puts 'DEBUG : cleaning added methods'
         #We did not change any existing method
 
         added_methods = moduler.instance_methods
         added_methods.each do |current_method|
           if adapter_methods.include? current_method
-            puts 'Removing method '+ current_method.to_s
             adapter.send(:remove_method, current_method)
           else
             puts 'This should not be reached' # Todo remove when debug ends
@@ -123,7 +101,6 @@ class FeatureExecutionImpl
 
       end
       #$history_logs[adapter.to_s].delete_at(log_index)
-      puts 'End of procedure'
 
     end
 
