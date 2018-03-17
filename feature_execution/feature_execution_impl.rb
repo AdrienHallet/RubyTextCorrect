@@ -21,7 +21,7 @@ class FeatureExecutionImpl
       end
 
       new_adapter = Object.const_get(feature_selector.next.feature.get_adapter)
-      new_adapter.previous = feature_selector
+      feature_selector.next.previous = feature_selector
       ancient_methods = feature_selector.feature.instance_methods
 
       ancient_methods.each do |meth| #copying methods from Old feature selector to the new one
@@ -33,7 +33,7 @@ class FeatureExecutionImpl
 
 
     elsif action == :unadapt
-      
+
       # Check if a previous definition exists. If yes, replace the content with the ancient one, else erase everything
       adapter = Object.const_get(feature_selector.feature.get_adapter)
 
