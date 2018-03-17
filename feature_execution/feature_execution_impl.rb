@@ -8,101 +8,60 @@ class FeatureExecutionImpl
   include Singleton
 
   def alter(action, feature_selector)
-    thread = Thread.current
+
     if action == :adapt
-      adapter = Object.const_get(feature_selector.feature.get_adapter)
+
       proceed_body = proc do
-        key = feature_selector.feature.get_adapter.to_s
-        callname =  caller[0][/`.*'/][1..-2] #magic
-        #TODO : Access is not thread-safe, find another way to go back on proceed
-        res = thread[:history][key+callname]
-        unless defined? thread[:access]
-          thread[:access]= Hash.new(1)
-        end
-        node = res[-thread[:access][callname]]
-        thread[:access][callname] += 1
-        meth = node.bind(self)
-
-
-        meth.call
+        #to be completed
       end
-      adapter.send(:define_method, :proceed, &proceed_body)
-      methods = feature_selector.feature.instance_methods
-      methods.each do |method_name|
-        if method_name.to_s.eql? 'proceed'
-          next
-        end
 
-        change_flag = false
-        begin
-          meth = adapter.instance_method(method_name) # Raise a NameError if the method does not exist
-
-          res = thread[:history][(adapter.to_s) +(method_name.to_s)]
-          if res.nil?
-            thread[:history][(adapter.to_s) +(method_name.to_s)] = []
-
-            res = thread[:history][(adapter.to_s) +(method_name.to_s)]
-            res.push('HEAD')
-          end
-          res.push(meth)
-          if thread[:history_logs][(adapter.to_s)+(method_name.to_s)].nil?
-            thread[:history_logs][(adapter.to_s)+(method_name.to_s)] = []
-          end
-          thread[:history_logs][(adapter.to_s)+(method_name.to_s)].push(feature_selector)
-          change_flag = true
-        rescue NameError => e #Todo Remove duplication in conditions
-          if thread[:history_logs][(adapter.to_s)].nil?
-            #$history_logs[(adapter.to_s)] = []
-          end
-
-
-        end
-        if change_flag
-          feature_selector.instance_variable_set(:@change, true)
-        end
-
-
-        method_body = feature_selector.feature.instance_method(method_name)
-        adapter.send(:define_method, method_name , method_body)
+      if feature_selector.next == nil
+        new_feat = FeatureSelector.new(feature_selector.feature,feature_selector.klass)
+        feature_selector.next = new_feat
       end
+
+      new_adapter = Object.const_get(feature_selector.next.feature.get_adapter)
+      feature_selector.next.previous = feature_selector
+      ancient_methods = feature_selector.feature.instance_methods
+
+      ancient_methods.each do |meth| #copying methods from Old feature selector to the new one
+        method_body = feature_selector.feature.instance_method(meth)
+        new_adapter.send(:define_method,meth,method_body)
+      end
+
+      new_adapter.send(:define_method, :proceed, &proceed_body)
 
 
     elsif action == :unadapt
 
-      adapter = Object.const_get feature_selector.feature.get_adapter
-      adapter_methods = adapter.instance_methods
-      moduler = feature_selector.feature
+      # Check if a previous definition exists. If yes, replace the content with the ancient one, else erase everything
+      adapter = Object.const_get(feature_selector.feature.get_adapter)
 
-      if feature_selector.instance_variable_defined? :@change
-        added_methods = moduler.instance_methods
-        added_methods.each do |current_method|
-          if thread[:history][(adapter.to_s) + (current_method.to_s)].nil?
-            adapter.send(:remove_method, current_method)
-          else
-            position = thread[:history_logs][(adapter.to_s) + (current_method.to_s)].index(feature_selector)
-            adapter.send(:remove_method, current_method)
-            old_version = thread[:history][(adapter.to_s) + (current_method.to_s)][position+1]
-            adapter.send(:define_method, current_method, old_version)
-            thread[:history][(adapter.to_s) + (current_method.to_s)].delete_at(position+1)
-            thread[:history_logs][(adapter.to_s) + (current_method.to_s)].delete_at(position)
-          end
-        end
-      else
-        #We did not change any existing method
+      #Erase everything
+      methods = feature_selector.feature.instance_methods
+      methods.each do |meth|
+        adapter.send(:remove_method,meth)
+      end
 
-        added_methods = moduler.instance_methods
-        added_methods.each do |current_method|
-          if adapter_methods.include? current_method
-            adapter.send(:remove_method, current_method)
-          else
-            puts 'This should not be reached' # Todo remove when debug ends
-          end
+      #If there was something previously, put it back
+      unless feature_selector.previous == nil
+        previous_methods = feature_selector.previous.feature.instance_methods
+
+        previous_methods.each do |meth|
+          method_body = feature_selector.feature.instance_method(meth)
+          adapter.send(:define_method,meth,method_body)
         end
 
       end
-      #$history_logs[adapter.to_s].delete_at(log_index)
 
-    end
+      #Dunno if it's the good way to do it or if we should call const_set
+      feature_selector.previous = feature_selector.previous.previous
+
+
+
+    else raise "Unhandled action : use either :adapt or :unadapt"
+
+    end #endif
 
 
   end

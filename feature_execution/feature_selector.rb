@@ -1,40 +1,13 @@
 class FeatureSelector
-  attr_reader :feature, :klass
-  attr_accessor :hash_stacks
+  attr_accessor :feature, :klass
+  attr_accessor :next, :previous
 
   def initialize(feature, klass)
-    thread = Thread.current
-    unless thread.key?(:history)
-      thread[:history] = Hash.new
-      thread[:history_logs] = Hash.new
-      thread[:access] = Hash.new(1)
-    end
+    @next = nil
+    @previous = nil
     @feature = Object.const_get(feature)
-    @hash_stacks = Hash.new
-    adapter = @feature.get_adapter.to_s
+    adapter = @feature.get_adapter.to_s #Local variable, can we remove it ?
     raise "#{@feature} does not adapt from #{klass}" unless adapter.eql? klass
   end
-
-  def check_existence(feature,klass)
-    flag = false
-
-    begin
-      meth = klass.method(feature) # Raise a NameError if the method does not exist
-    rescue NameError => e
-      flag = true
-    end
-
-    if flag # if the method exists, we put the old one on a stack
-      if not hash_stacks.has_key?(klass)
-        hash_stacks[klass] = []
-      end
-        arr = hash_stacks[klass]
-        arr.push(meth)
-    end
-
-
-  end
-
-
 
 end
