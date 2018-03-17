@@ -8,18 +8,23 @@ class FeatureExecutionImpl
   include Singleton
 
   def alter(action, feature_selector)
+    id=caller[0][/`.*'/][1..-2]
     thread = Thread.current
+    if thread[('history'+id).to_sym].nil?
+      thread[('history'+id).to_sym] = Hash.new
+      thread[('history_logs'+id).to_sym] = Hash.new      
+    end
     if action == :adapt
       adapter = Object.const_get(feature_selector.feature.get_adapter)
       proceed_body = proc do
         key = feature_selector.feature.get_adapter.to_s
         callname =  caller[0][/`.*'/][1..-2] #magic
         #TODO : Access is not thread-safe, find another way to go back on proceed
-        res = thread[:history][key+callname]
+        debug = thread[('history'+id).to_sym]
+        res = thread[('history'+id).to_sym][id+key+callname]
         unless self.instance_variable_defined? :@access
           self.instance_variable_set(:@access, Hash.new(1))
         end
-        s = self
         position = self.instance_variable_get :@access
         index = position[callname]
         node = res[-index]
@@ -46,18 +51,18 @@ class FeatureExecutionImpl
         begin
           meth = adapter.instance_method(method_name) # Raise a NameError if the method does not exist
 
-          res = thread[:history][(adapter.to_s) +(method_name.to_s)]
+          res = thread[('history'+id).to_sym][id+(adapter.to_s) +(method_name.to_s)]
           if res.nil?
-            thread[:history][(adapter.to_s) +(method_name.to_s)] = []
+            thread[('history'+id).to_sym][id+(adapter.to_s) +(method_name.to_s)] = []
 
-            res = thread[:history][(adapter.to_s) +(method_name.to_s)]
+            res = thread[('history'+id).to_sym][id+(adapter.to_s) +(method_name.to_s)]
             res.push('HEAD')
           end
           res.push(meth)
-          if thread[:history_logs][(adapter.to_s)+(method_name.to_s)].nil?
-            thread[:history_logs][(adapter.to_s)+(method_name.to_s)] = []
+          if thread[('history_logs'+id).to_sym][id+(adapter.to_s)+(method_name.to_s)].nil?
+            thread[('history_logs'+id).to_sym][id+(adapter.to_s)+(method_name.to_s)] = []
           end
-          thread[:history_logs][(adapter.to_s)+(method_name.to_s)].push(feature_selector)
+          thread[('history_logs'+id).to_sym][id+(adapter.to_s)+(method_name.to_s)].push(feature_selector)
           change_flag = true
         rescue NameError => e #Todo Remove duplication in conditions
 
@@ -82,15 +87,15 @@ class FeatureExecutionImpl
       if feature_selector.instance_variable_defined? :@change
         added_methods = moduler.instance_methods
         added_methods.each do |current_method|
-          if thread[:history][(adapter.to_s) + (current_method.to_s)].nil?
+          if thread[('history'+id).to_sym][id+(adapter.to_s) + (current_method.to_s)].nil?
             adapter.send(:remove_method, current_method)
           else
-            position = thread[:history_logs][(adapter.to_s) + (current_method.to_s)].index(feature_selector)
+            position = thread[('history_logs'+id).to_sym][id+(adapter.to_s) + (current_method.to_s)].index(feature_selector)
             adapter.send(:remove_method, current_method)
-            old_version = thread[:history][(adapter.to_s) + (current_method.to_s)][position+1]
+            old_version = thread[('history'+id).to_sym][id+(adapter.to_s) + (current_method.to_s)][position+1]
             adapter.send(:define_method, current_method, old_version)
-            thread[:history][(adapter.to_s) + (current_method.to_s)].delete_at(position+1)
-            thread[:history_logs][(adapter.to_s) + (current_method.to_s)].delete_at(position)
+            thread[('history'+id).to_sym][id+(adapter.to_s) + (current_method.to_s)].delete_at(position+1)
+            thread[('history_logs'+id).to_sym][id+(adapter.to_s) + (current_method.to_s)].delete_at(position)
           end
         end
       else
