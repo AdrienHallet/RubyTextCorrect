@@ -16,11 +16,20 @@ class FeatureExecutionImpl
         callname =  caller[0][/`.*'/][1..-2] #magic
         #TODO : Access is not thread-safe, find another way to go back on proceed
         res = thread[:history][key+callname]
-        unless defined? thread[:access]
-          thread[:access]= Hash.new(1)
+        unless self.instance_variable_defined? :@access
+          self.instance_variable_set(:@access, Hash.new(1))
         end
-        node = res[-thread[:access][callname]]
-        thread[:access][callname] += 1
+        s = self
+        position = self.instance_variable_get :@access
+        index = position[callname]
+        node = res[-index]
+        if node.eql? 'HEAD'
+          position[callname] = 1
+          index = position[callname]
+          node = res[-index]
+        end
+        position[callname] += 1
+        self.instance_variable_set(:@access, position)
         meth = node.bind(self)
 
 
@@ -51,9 +60,6 @@ class FeatureExecutionImpl
           thread[:history_logs][(adapter.to_s)+(method_name.to_s)].push(feature_selector)
           change_flag = true
         rescue NameError => e #Todo Remove duplication in conditions
-          if thread[:history_logs][(adapter.to_s)].nil?
-            #$history_logs[(adapter.to_s)] = []
-          end
 
 
         end
