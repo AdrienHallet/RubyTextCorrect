@@ -8,14 +8,11 @@ class FeatureExecutionImpl
   include Singleton
 
   def alter(action, feature_selector)
+    adapter = Object.const_get(feature_selector.feature.get_adapter)
     if action == :adapt
-      adapter = Object.const_get(feature_selector.feature.get_adapter)
-      adapter.instance_variable_set(:@last_called, Hash.new(nil))
-
       proceed_body = proc do
-        myself = self
         unless self.instance_variable_defined?(:@last_called)
-          @last_called = Hash.new(nil)
+          self.instance_variable_set(:@last_called, Hash.new(nil))
         end
         callname = caller_locations(1,1)[0].label
         available_methods = self.class.instance_methods(false).sort
@@ -24,7 +21,7 @@ class FeatureExecutionImpl
         available_methods.reverse_each do |method|
           if method.to_s.start_with?(callname)
             id = method.to_s.sub! callname, ''
-            lc = @last_called[callname]
+            lc = self.instance_variable_get(:@last_called)[callname]
             boolean = lc.nil?
             if (id.eql? '') || (lc.nil?) || (id < lc)
               candidate = method
@@ -36,9 +33,13 @@ class FeatureExecutionImpl
           p 'did not find :' + callname.to_s
         else
           if id == ''
-            @last_called[callname] = nil
+            map = self.instance_variable_get(:@last_called)
+            map[callname] = nil
+            self.instance_variable_set(:@last_called, map)
           else
-            @last_called[callname] = id
+            map = self.instance_variable_get(:@last_called)
+            map[callname] = id
+            self.instance_variable_set(:@last_called, map)
           end
           self.method(candidate).call
 
@@ -62,6 +63,7 @@ class FeatureExecutionImpl
           end
           new_name = (method_name.to_s + id.to_s).to_sym
           adapter.send(:define_method, new_name, to_move)
+          feature_selector.old_version[method_name.to_s] = id
         end
 
         method_body = feature_selector.feature.instance_method(method_name)
@@ -71,6 +73,26 @@ class FeatureExecutionImpl
 
 
     elsif action == :unadapt
+      module_methods = feature_selector.feature.instance_methods(false)
+      module_methods.each do |method|
+        version = feature_selector.old_version[method.to_s]
+        if version.nil?
+          #No older version, just remove
+          adapter.send(:remove_method, method)
+        else
+          adapter_methods = adapter.instance_methods.sort
+          old_name = (method.to_s + version.to_s).to_sym
+          if adapter_methods.include? old_name
+            old_method = adapter.instance_method(old_name)
+            adapter.send(:remove_method, old_name)
+            adapter.send(:define_method, method, old_method)
+
+          else
+            p "--------> wtf ?"
+          end
+        end
+
+      end
 
 
     end
