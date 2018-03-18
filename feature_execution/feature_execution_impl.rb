@@ -73,12 +73,27 @@ class FeatureExecutionImpl
     elsif action == :unadapt
       module_methods = feature_selector.feature.instance_methods(false)
       module_methods.each do |method|
+        id = nil
+        adapter_methods = adapter.instance_methods(false).sort
+        adapter_methods.reverse_each do |meth|
+          if meth.to_s.start_with?(method.to_s)
+            id = meth.to_s.sub! method.to_s, ''
+            break
+          end
+        end
         version = feature_selector.old_version[method.to_s]
+
         if version.nil?
           #No older version, just remove
           adapter.send(:remove_method, method)
         else
-          adapter_methods = adapter.instance_methods.sort
+          id = Integer(id||nil)
+          if version < id
+            version += 1
+          elsif version > id
+            version = ''
+          end
+
           old_name = (method.to_s + version.to_s).to_sym
           if adapter_methods.include? old_name
             old_method = adapter.instance_method(old_name)
