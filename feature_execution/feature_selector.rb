@@ -1,15 +1,12 @@
 class FeatureSelector
   attr_reader :feature, :klass
-  attr_accessor :old_version
+  attr_accessor :old_version, :adapted
 
   def initialize(feature, klass)
-    thread = Thread.current
-    unless thread.key?(:history)
-      thread[:history] = Hash.new
-      thread[:history_logs] = Hash.new
-    end
+
     @feature = Object.const_get(feature)
-    @old_version = Hash.new(nil)
+    @old_version = {}
+    @adapted = false
 
     adapter = @feature.get_adapter.to_s
     raise "#{@feature} does not adapt from #{klass}" unless adapter.eql? klass
