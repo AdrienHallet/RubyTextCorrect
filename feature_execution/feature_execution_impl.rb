@@ -47,8 +47,13 @@ class FeatureExecutionImpl
     return unless adapter_methods.include? method_name
     to_move = adapter.instance_method(method_name)
     adapter.send(:remove_method, method_name)
-    id = 1
-    id += 1 while adapter_methods.include?((method_name.to_s + id.to_s).to_sym)
+    id = position?adapter_methods, (method_name.to_s + id.to_s).to_sym
+    if id.nil? || id == ''
+      id = 1
+    else
+      id = Integer(id)
+      id += 1
+    end
     new_name = (method_name.to_s + id.to_s).to_sym
     adapter.send(:define_method, new_name, to_move)
     feature_selector.old_version[method_name.to_s] = id
