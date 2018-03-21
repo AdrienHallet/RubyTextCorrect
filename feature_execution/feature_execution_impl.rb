@@ -59,7 +59,7 @@ class FeatureExecutionImpl
     feature_selector.old_version[method_name.to_s] = id
   end
 
-  # unadapt a feature
+  # un-adapt a feature
   # @param adapter : the adapter
   # @param feature_selector : the FeatureSelector
   def unadapt(adapter, feature_selector)
@@ -68,7 +68,6 @@ class FeatureExecutionImpl
       adapter_methods = adapter.instance_methods(false).sort
       id = position? adapter_methods, method
       version = feature_selector.old_version[method.to_s]
-
       if version.nil?
         # No older version, just remove
         adapter.send(:remove_method, method)
@@ -80,6 +79,11 @@ class FeatureExecutionImpl
     feature_selector.adapted = false
   end
 
+  # return the last version of method in the queue
+  # if method not found -> nil
+  # if method has only the original version -> ''
+  # @param adapter_methods the methods with the queue inside
+  # @param method the method we are looking for
   def position?(adapter_methods, method)
     adapter_methods.reverse_each do |meth|
       if meth.to_s.start_with?(method.to_s)
@@ -98,15 +102,11 @@ class FeatureExecutionImpl
     elsif version > id
       version = ''
     end
-
     old_name = (method.to_s + version.to_s).to_sym
-    if adapter_methods.include? old_name
-      old_method = adapter.instance_method(old_name)
-      adapter.send(:remove_method, old_name)
-      adapter.send(:define_method, method, old_method)
-    else
-      raise 'Unhandled exception'
-    end
+    raise 'Unhandled exception' unless adapter_methods.include? old_name
+    old_method = adapter.instance_method(old_name)
+    adapter.send(:remove_method, old_name)
+    adapter.send(:define_method, method, old_method)
   end
 
   def send_proceed_on(adapter)
@@ -131,17 +131,14 @@ class FeatureExecutionImpl
       if candidate.nil?
         p 'did not find :' + callname.to_s
       else
-        if id == ''
-          map = instance_variable_get(:@last_called)
-          map[callname] = nil
-          self.instance_variable_set(:@last_called, map)
-        else
-          map = instance_variable_get(:@last_called)
-          map[callname] = id
-          instance_variable_set(:@last_called, map)
-        end
+        map = instance_variable_get(:@last_called)
+        map[callname] = if id == ''
+                          nil
+                        else
+                          id
+                        end
+        instance_variable_set(:@last_called, map)
         self.method(candidate).call
-
       end
     end
     adapter.send(:define_method, :proceed, &proceed_body)
